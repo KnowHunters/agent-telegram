@@ -46,3 +46,10 @@ build-errors.log
 /agent-telegram
 ipc-client
 *.log
+
+# Gateway runtime data and Telegram authorization (never commit).
+*.db
+*.db-wal
+*.db-shm
+*.dpapi
+.agent-telegram/

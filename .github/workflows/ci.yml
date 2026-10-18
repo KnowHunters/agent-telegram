@@ -10,6 +10,20 @@ permissions:
   contents: read
 
 jobs:
+  windows-gateway:
+    name: Windows gateway and session tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test gateway, transport, encryption and plain-message encoding
+        run: go test ./internal/gateway ./internal/ipc ./internal/sessionstore ./telegram/internal/replytarget
+      - name: Build Windows executable
+        run: go build -o agent-telegram-gateway.exe .
+
   test:
     name: Test
     runs-on: ubuntu-latest

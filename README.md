@@ -2,6 +2,11 @@
 
 Telegram automation CLI for AI agents. It is a fast Go MTProto client with a local IPC daemon, JSON output, schemas, receipts, and an optional HTTP API.
 
+This fork adds an authenticated HTTP/WebSocket gateway, durable event replay
+and request receipts, and encrypted Windows session persistence.
+See the [gateway setup and protocol](docs/gateway.md). Build this fork from
+source for these features; the upstream npm package does not include them.
+
 By Aslan Dukaev [X](https://x.com/dukaev) · [Telegram](https://t.me/dukaev)
 
 ## Install
@@ -14,7 +19,7 @@ npm install -g agent-telegram
 From source:
 
 ```bash
-git clone https://github.com/dukaev/agent-telegram
+git clone https://github.com/KnowHunters/agent-telegram
 cd agent-telegram
 go build -o agent-telegram .
 ```

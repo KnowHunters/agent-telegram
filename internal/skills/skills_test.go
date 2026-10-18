@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"agent-telegram/internal/testutil"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -64,7 +65,7 @@ func TestInstallBundledSkill(t *testing.T) {
 
 func TestDefaultInstallDirUsesCanonicalUserSkills(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", filepath.Join(home, "legacy-codex-home"))
 	want := filepath.Join(home, ".agents", "skills")
 	if got := DefaultInstallDir(); got != want {
@@ -93,7 +94,7 @@ func TestInstallDoesNotReplaceDanglingSymlinkWithoutForce(t *testing.T) {
 
 func TestInstallCreatesCanonicalUserSkillParents(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	installed, err := Install("agent-telegram", "", false)
 	if err != nil {
 		t.Fatal(err)

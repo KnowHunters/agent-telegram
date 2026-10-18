@@ -1,8 +1,10 @@
 package skills
 
 import (
+	"agent-telegram/internal/testutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -23,7 +25,7 @@ func TestResolveOnboardingChoosesNearestProjectSkills(t *testing.T) {
 	makeDir(t, cwd)
 	makeDir(t, rootSkills)
 	makeDir(t, nearSkills)
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", cwd)
@@ -63,7 +65,7 @@ func TestResolveOnboardingStopsForExistingApplicableSkill(t *testing.T) {
 			makeDir(t, filepath.Join(repo, ".git"))
 			makeDir(t, filepath.Join(cwd, ".agents", "skills"))
 			makeDir(t, rootSkills)
-			t.Setenv("HOME", home)
+			testutil.SetHome(t, home)
 			t.Setenv("CODEX_HOME", "")
 			test.setup(t, home, rootSkills)
 
@@ -79,7 +81,7 @@ func TestResolveOnboardingPromptsCanonicalGlobalWithoutProjectSkills(t *testing.
 	home := t.TempDir()
 	repo := filepath.Join(t.TempDir(), "repo")
 	makeDir(t, filepath.Join(repo, ".git"))
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", repo)
@@ -98,7 +100,7 @@ func TestResolveOnboardingNonRepositoryChecksOnlyCWD(t *testing.T) {
 	cwd := filepath.Join(parent, "work")
 	makeDir(t, cwd)
 	makeDir(t, filepath.Join(parent, ".agents", "skills"))
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", cwd)
@@ -115,7 +117,7 @@ func TestResolveOnboardingRejectsMalformedProjectSkills(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".agents", "skills"), []byte("owned"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	if _, err := ResolveOnboarding("agent-telegram", repo); err == nil {
 		t.Fatal("malformed project skills path should fail")
 	}
@@ -123,7 +125,7 @@ func TestResolveOnboardingRejectsMalformedProjectSkills(t *testing.T) {
 
 func TestGlobalPromptDismissalMatchesOnlyCanonicalTarget(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	targetA := filepath.Join(home, ".agents", "skills", "agent-telegram")
 	targetB := filepath.Join(home, "other", "agent-telegram")
 	if err := RecordGlobalPromptDismissal(targetA); err != nil {
@@ -143,11 +145,11 @@ func TestGlobalPromptDismissalMatchesOnlyCanonicalTarget(t *testing.T) {
 		t.Fatalf("marker=%q err=%v", data, err)
 	}
 	info, err := os.Stat(marker)
-	if err != nil || info.Mode().Perm() != 0o600 {
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
 		t.Fatalf("marker mode error: info=%v err=%v", info, err)
 	}
 	dirInfo, err := os.Stat(filepath.Dir(marker))
-	if err != nil || dirInfo.Mode().Perm() != 0o700 {
+	if err != nil || (runtime.GOOS != "windows" && dirInfo.Mode().Perm() != 0o700) {
 		t.Fatalf("marker directory mode error: info=%v err=%v", dirInfo, err)
 	}
 }
@@ -162,7 +164,7 @@ func TestResolveOnboardingSupportsGitFileAndCodexHomeLegacy(t *testing.T) {
 	}
 	makeDir(t, filepath.Join(repo, ".agents", "skills"))
 	makeDir(t, filepath.Join(codexHome, "skills", "agent-telegram"))
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", codexHome)
 
 	decision, err := ResolveOnboarding("agent-telegram", repo)
@@ -204,7 +206,7 @@ func TestResolveOnboardingTreatsAllTargetKindsAsExisting(t *testing.T) {
 			makeDir(t, filepath.Join(repo, ".git"))
 			makeDir(t, skillsDir)
 			creator.create(t, filepath.Join(skillsDir, "agent-telegram"))
-			t.Setenv("HOME", home)
+			testutil.SetHome(t, home)
 			t.Setenv("CODEX_HOME", "")
 
 			decision, err := ResolveOnboarding("agent-telegram", repo)
@@ -225,7 +227,7 @@ func TestResolveOnboardingFollowsProjectSkillsDirectorySymlink(t *testing.T) {
 	if err := os.Symlink(realSkills, filepath.Join(repo, ".agents", "skills")); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", repo)
@@ -242,7 +244,7 @@ func TestResolveOnboardingRejectsDanglingProjectSkillsSymlink(t *testing.T) {
 	if err := os.Symlink(filepath.Join(repo, "missing"), filepath.Join(repo, ".agents", "skills")); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	if _, err := ResolveOnboarding("agent-telegram", repo); err == nil {
@@ -256,7 +258,7 @@ func TestResolveOnboardingUsesCWDProjectSkills(t *testing.T) {
 	cwd := filepath.Join(repo, "module")
 	makeDir(t, filepath.Join(repo, ".git"))
 	makeDir(t, filepath.Join(cwd, ".agents", "skills"))
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", cwd)
@@ -272,7 +274,7 @@ func TestResolveOnboardingStopsAtNearestRepositoryBoundary(t *testing.T) {
 	makeDir(t, filepath.Join(outer, ".git"))
 	makeDir(t, filepath.Join(outer, ".agents", "skills"))
 	makeDir(t, filepath.Join(inner, ".git"))
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("CODEX_HOME", "")
 
 	decision, err := ResolveOnboarding("agent-telegram", inner)

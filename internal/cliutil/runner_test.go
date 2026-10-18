@@ -1,6 +1,7 @@
 package cliutil
 
 import (
+	"agent-telegram/internal/testutil"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -10,7 +11,8 @@ import (
 )
 
 func TestPrintDryRunReceiptIncludesActionMetadata(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
+	t.Cleanup(CloseLogs)
 
 	runner := NewRunner("", true)
 	runner.outputFormat = OutputJSON
@@ -50,7 +52,8 @@ func TestPrintDryRunReceiptIncludesActionMetadata(t *testing.T) {
 }
 
 func TestFailTypedTimeoutProducesPartialEnvelopeAndAudit(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
+	t.Cleanup(CloseLogs)
 	SetExitFunc(func(code int) {
 		if code != 1 {
 			t.Errorf("exit code = %d, want 1", code)
@@ -130,7 +133,8 @@ func TestFailTypedTimeoutProducesPartialEnvelopeAndAudit(t *testing.T) {
 }
 
 func TestFailTypedStandaloneWaitOmitsPartialResultAndActionSucceeded(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
+	t.Cleanup(CloseLogs)
 	SetExitFunc(func(int) {})
 	t.Cleanup(func() { SetExitFunc(nil) })
 	runner := NewRunner("", true)

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"agent-telegram/internal/testutil"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -18,7 +19,7 @@ func useMemorySessionStore(t *testing.T) {
 
 func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
 	useMemorySessionStore(t)
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	t.Setenv(envTelegramSession, "")
 
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
@@ -36,7 +37,7 @@ func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
 
 func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
 	useMemorySessionStore(t)
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	t.Setenv(envTelegramSession, base64.StdEncoding.EncodeToString([]byte("env-session")))
 
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
@@ -47,7 +48,7 @@ func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
 
 func TestImportSessionForMemoryStorage(t *testing.T) {
 	useMemorySessionStore(t)
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	t.Setenv(envTelegramSession, "")
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
 
@@ -105,7 +106,7 @@ func TestLogoutTelegramClientAllowsNilClient(_ *testing.T) {
 }
 
 func TestLoadPolicyCheckerReturnsReloadingEnforcer(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	checker := loadPolicyChecker(nil)
 	if _, ok := checker.(*policy.ReloadingEnforcer); !ok {
 		t.Fatalf("checker = %T, want *policy.ReloadingEnforcer", checker)

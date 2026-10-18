@@ -1,6 +1,7 @@
 package config
 
 import (
+	"agent-telegram/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,7 +9,7 @@ import (
 )
 
 func TestConfigValidationAndClone(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	cfg := New(1, "hash", "+1", "")
 	if !strings.HasSuffix(cfg.SessionPath, ".agent-telegram") {
 		t.Fatalf("session path = %q", cfg.SessionPath)
@@ -43,7 +44,7 @@ func TestConfigValidationAndClone(t *testing.T) {
 
 func TestLoadersAndEnv(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("AGENT_TELEGRAM_APP_ID", "123")
 	t.Setenv("AGENT_TELEGRAM_APP_HASH", "hash")
 	t.Setenv("AGENT_TELEGRAM_PHONE", "+1")
@@ -78,7 +79,7 @@ func TestLoadersAndEnv(t *testing.T) {
 
 func TestFileAndStoredConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	if path, err := ConfigPath(); err != nil || path != filepath.Join(home, ".agent-telegram", "config.json") {
 		t.Fatalf("ConfigPath = %q, %v", path, err)
 	}
@@ -130,14 +131,14 @@ func TestFileAndStoredConfig(t *testing.T) {
 	if err != nil || stored.AppID != 10 || stored.AppHash != "envhash" {
 		t.Fatalf("env stored = %+v, %v", stored, err)
 	}
-	t.Setenv("HOME", "")
+	testutil.SetHome(t, "")
 	if _, err := ConfigPath(); err == nil {
 		t.Fatal("missing HOME should fail")
 	}
 }
 
 func TestPendingSessionIsConsumedOnce(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	if err := SavePendingSession([]byte("one-time-session")); err != nil {
 		t.Fatal(err)
 	}

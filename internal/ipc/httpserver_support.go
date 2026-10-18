@@ -29,7 +29,7 @@ type httpRPCRequest struct {
 func (s *HTTPServer) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for health endpoint
-		if r.URL.Path == "/health" {
+		if r.URL.Path == "/health" || r.URL.Path == "/ws" {
 			next.ServeHTTP(w, r)
 			return
 		}

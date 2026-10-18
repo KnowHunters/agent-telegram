@@ -1,11 +1,12 @@
 package observability
 
 import (
+	"agent-telegram/internal/testutil"
 	"testing"
 )
 
 func TestWriteAuditRedactsParams(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 
 	err := WriteAudit("", AuditEvent{
 		TraceID: "trace-redact",
@@ -47,7 +48,7 @@ func TestWriteAuditRedactsParams(t *testing.T) {
 }
 
 func TestWriteAuditPreservesPartialTimeoutCorrelation(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	event := AuditEvent{
 		RunID:     "run-test",
 		TraceID:   "trace-test",
