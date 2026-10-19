@@ -119,14 +119,14 @@ func TestWebSocketReceiptsSharedWithHTTP(t *testing.T) {
 
 func TestWebSocketEventsResumeAndPeerFilter(t *testing.T) {
 	_, store, url := gatewayFixture(t)
-	if err := store.Append(context.Background(), "alice", "new_message", map[string]any{"peer": "user1", "text": "one"}); err != nil {
+	if err := store.Append(context.Background(), "alice", "new_message", map[string]any{"message": map[string]any{"peer": "user:1", "text": "one"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Append(context.Background(), "bob", "new_message", map[string]any{"text": "private"}); err != nil {
 		t.Fatal(err)
 	}
 	c := wsConnect(t, url)
-	wsWrite(t, c, map[string]any{"type": "request", "id": "subscribe", "method": "events.subscribe", "params": map[string]any{"cursor": 0, "peers": []string{"user1"}}})
+	wsWrite(t, c, map[string]any{"type": "request", "id": "subscribe", "method": "events.subscribe", "params": map[string]any{"cursor": 0, "peers": []string{"user:1"}}})
 	if ack := wsRead(t, c); ack["ok"] != true {
 		t.Fatal(ack)
 	}
@@ -138,11 +138,46 @@ func TestWebSocketEventsResumeAndPeerFilter(t *testing.T) {
 	if checkpoint["cursor"] != float64(2) {
 		t.Fatal(checkpoint)
 	}
-	if err := store.Append(context.Background(), "alice", "edit_message", map[string]any{"peer": "user1", "text": "edited"}); err != nil {
+	if err := store.Append(context.Background(), "alice", "edit_message", map[string]any{"message": map[string]any{"peer": "user:1", "text": "edited"}}); err != nil {
 		t.Fatal(err)
 	}
 	if event = wsRead(t, c); event["event"] != "edit_message" {
 		t.Fatal(event)
+	}
+}
+
+type blockedEventPeer struct{}
+
+func (blockedEventPeer) Check(_ context.Context, method string, params json.RawMessage) error {
+	var p struct {
+		Peer string `json:"peer"`
+	}
+	_ = json.Unmarshal(params, &p)
+	if p.Peer == "user:blocked" {
+		return NewPolicyDeniedError(method, "peer denied")
+	}
+	return nil
+}
+
+func TestWebSocketChecksPolicyOnNestedTelegramMessage(t *testing.T) {
+	srv, store, url := gatewayFixture(t)
+	srv.SetPolicyChecker(blockedEventPeer{})
+	for _, peer := range []string{"user:blocked", "user:allowed"} {
+		if err := store.Append(context.Background(), "alice", "new_message", map[string]any{"message": map[string]any{"peer": peer}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := wsConnect(t, url)
+	wsWrite(t, c, map[string]any{"type": "request", "id": "sub", "method": "events.subscribe", "params": map[string]any{"cursor": 0}})
+	if ack := wsRead(t, c); ack["ok"] != true {
+		t.Fatal(ack)
+	}
+	event := wsRead(t, c)
+	if event["type"] != "event" || event["data"].(map[string]any)["peer"] != "user:allowed" {
+		t.Fatal("peer policy bypass", event)
+	}
+	if checkpoint := wsRead(t, c); checkpoint["type"] != "checkpoint" {
+		t.Fatal(checkpoint)
 	}
 }
 

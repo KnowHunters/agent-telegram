@@ -105,16 +105,16 @@ Responses can arrive out of order. Maximum inbound frame size is 1 MiB.
 ### Subscribe and resume
 
 ```json
-{"type":"request","id":"sub-1","method":"events.subscribe","params":{"cursor":123,"kinds":["new_message","edit_message"],"peers":["user10001"]}}
+{"type":"request","id":"sub-1","method":"events.subscribe","params":{"cursor":123,"kinds":["new_message","edit_message"],"peers":["user:10001"]}}
 ```
 
 Omit `cursor` to start from now; use `0` for all retained events. Omit `kinds`
 or `peers` for all allowed values. Peer filters use the exact typed peer IDs
-in events, e.g. `user123`, `chat123`, `channel123`, not usernames. Policy is
+in events, e.g. `user:123`, `chat:123`, `channel:123`, not usernames. Policy is
 checked before subscription and again for each event, including policy reloads.
 
 ```json
-{"type":"event","cursor":124,"account":"123456789","event":"new_message","data":{"peer":"user10001","id":321,"text":"Results"}}
+{"type":"event","cursor":124,"account":"123456789","event":"new_message","data":{"peer":"user:10001","id":321,"text":"Results"}}
 ```
 
 Persist each `checkpoint.cursor` after processing all preceding events. A

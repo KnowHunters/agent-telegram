@@ -303,6 +303,11 @@ func (s *HTTPServer) streamEvents(ctx context.Context, account string, cursor in
 			if ctx.Err() != nil {
 				return
 			}
+			// Also normalize events journaled by builds before the flat schema.
+			var legacy map[string]json.RawMessage
+			if json.Unmarshal(event.Data, &legacy) == nil && len(legacy["message"]) > 0 && legacy["message"][0] == '{' {
+				event.Data = legacy["message"]
+			}
 			if s.checkHTTPPolicy(WithSurface(ctx, SurfaceHTTP), "get_updates", event.Data) != nil {
 				continue
 			}

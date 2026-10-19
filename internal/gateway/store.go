@@ -72,6 +72,13 @@ func (s *Store) Close() error {
 func (s *Store) Append(parent context.Context, account, kind string, data any) error {
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
+	// The Telegram facade wraps message events in {message: {...}}. The gateway
+	// exposes the message itself so peer filters and per-peer policy see its peer.
+	if envelope, ok := data.(map[string]any); ok {
+		if message, ok := envelope["message"].(map[string]any); ok {
+			data = message
+		}
+	}
 	b, err := json.Marshal(data)
 	if err != nil {
 		return err
