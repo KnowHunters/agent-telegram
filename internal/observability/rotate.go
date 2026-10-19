@@ -17,6 +17,18 @@ type RotatingWriter struct {
 
 var _ io.Writer = (*RotatingWriter)(nil)
 
+// Close releases the active log file, including after rotation on Windows.
+func (w *RotatingWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.file == nil {
+		return nil
+	}
+	err := w.file.Close()
+	w.file = nil
+	return err
+}
+
 // NewRotatingWriter opens a writer with size-based retention.
 func NewRotatingWriter(path string) (*RotatingWriter, error) {
 	file, err := OpenAppendLog(path)

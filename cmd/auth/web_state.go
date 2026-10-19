@@ -13,6 +13,7 @@ type webAuthSnapshot struct {
 	qrImage           string
 	qrTokenURL        string
 	qrExpires         time.Time
+	qrError           string
 	policy            policy.Policy
 	mock              bool
 	appID             int
@@ -43,6 +44,7 @@ func (s *webAuthSession) snapshot() webAuthSnapshot {
 		qrImage:           s.qrImage,
 		qrTokenURL:        s.qrTokenURL,
 		qrExpires:         s.qrExpires,
+		qrError:           s.qrError,
 		policy:            s.policy,
 		mock:              s.runtime.WebMock,
 		appID:             s.state.AppID,
@@ -102,6 +104,7 @@ func (s webAuthSnapshot) completedClientState(data authClientState) authClientSt
 func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 	data.Mode = "qr"
 	data.Refresh = 1
+	data.Error = s.qrError
 	data.Message = "Scan the code with the Telegram app."
 	if s.qrImage == "" {
 		data.Title = "Sign in to Telegram"

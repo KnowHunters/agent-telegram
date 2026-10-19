@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"agent-telegram/internal/gateway"
 	"agent-telegram/internal/operations"
 	"agent-telegram/internal/skills"
 )
@@ -30,6 +31,9 @@ type HTTPServer struct {
 	srv       *http.Server
 	policy    PolicyChecker
 	fileRoots []string
+	gateway   *gateway.Store
+	account   func(context.Context) string
+	wsWG      sync.WaitGroup
 }
 
 // NewHTTPServer creates a new HTTP API server.
@@ -47,10 +51,12 @@ func NewHTTPServerOnAddress(address, secret, cors string) *HTTPServer {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("GET /ready", s.handleReady)
+	mux.HandleFunc("GET /ws", s.handleWebSocket)
 	mux.HandleFunc("GET /methods", s.handleMethods)
 	mux.HandleFunc("GET /manifest", s.handleManifest)
 	mux.HandleFunc("GET /openapi.json", s.handleOpenAPI)
-	mux.HandleFunc("POST /rpc/{method}", s.handleRPC)
+	mux.HandleFunc("POST /rpc/{method}", s.handleGatewayRPC)
 
 	var handler http.Handler = mux
 	if cors != "" {
@@ -94,6 +100,7 @@ func (s *HTTPServer) SetPolicyChecker(policy PolicyChecker) {
 
 // Start starts the HTTP server. Blocks until ctx is cancelled.
 func (s *HTTPServer) Start(ctx context.Context) error {
+	s.srv.BaseContext = func(net.Listener) context.Context { return ctx }
 	lc := &net.ListenConfig{}
 	ln, err := lc.Listen(ctx, "tcp", s.srv.Addr)
 	if err != nil {
@@ -118,7 +125,9 @@ func (s *HTTPServer) Start(ctx context.Context) error {
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), httpShutdownWait)
 	defer shutCancel()
 
-	return s.srv.Shutdown(shutCtx) //nolint:contextcheck // parent ctx already cancelled
+	err = s.srv.Shutdown(shutCtx) //nolint:contextcheck // parent ctx already cancelled
+	s.wsWG.Wait()
+	return err
 }
 
 // --- Handlers ---

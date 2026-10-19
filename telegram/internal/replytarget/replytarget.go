@@ -7,7 +7,7 @@ import (
 )
 
 // Build converts the shared thread target into Telegram's reply representation.
-func Build(target types.ThreadTarget) *tg.InputReplyToMessage {
+func Build(target types.ThreadTarget) tg.InputReplyToClass {
 	if target.ThreadID == 0 && target.ReplyTo == 0 {
 		return nil
 	}

@@ -10,6 +10,7 @@ import (
 var (
 	chatsLimit  int
 	chatsOffset int
+	chatsCursor string
 	chatsSearch string
 	chatsType   string
 )
@@ -29,13 +30,14 @@ var ChatsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(cmd, true)
 		runner.SetIDKey("peer")
-		cliutil.GetChatsWithRunner(runner, chatsLimit, chatsOffset, chatsSearch, chatsType)
+		cliutil.GetChatsWithRunner(runner, chatsLimit, chatsOffset, chatsCursor, chatsSearch, chatsType)
 	},
 }
 
 func init() {
 	ChatsCmd.Flags().IntVarP(&chatsLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ChatsCmd.Flags().IntVarP(&chatsOffset, "offset", "o", 0, "Offset for pagination")
+	ChatsCmd.Flags().StringVar(&chatsCursor, "cursor", "", "Opaque cursor returned by a previous page")
 	ChatsCmd.Flags().StringVarP(&chatsSearch, "search", "Q", "", "Filter by title or username (case-insensitive)")
 	ChatsCmd.Flags().StringVar(&chatsType, "type", "", "Filter by type: user, chat, channel, or bot")
 

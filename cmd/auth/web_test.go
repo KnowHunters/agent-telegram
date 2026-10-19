@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -86,7 +87,7 @@ func TestWebAuthServerDoesNotExposeNonQRLoginRoutes(t *testing.T) {
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 
-	server, link, err := startWebAuthServer(context.Background(), session, 0)
+	server, link, err := startWebAuthServer(context.Background(), session, "127.0.0.1", 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,6 +111,88 @@ func TestWebAuthServerDoesNotExposeNonQRLoginRoutes(t *testing.T) {
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusMethodNotAllowed {
 			t.Fatalf("%s status = %d, want 405", path, resp.StatusCode)
+		}
+	}
+}
+
+func TestWebAuthLink(t *testing.T) {
+	tests := []struct {
+		name          string
+		publicURL     string
+		listenAddress string
+		want          string
+	}{
+		{
+			name:          "local listener",
+			listenAddress: "127.0.0.1:41000",
+			want:          "http://127.0.0.1:41000/auth?t=test-token",
+		},
+		{
+			name:          "public base URL",
+			publicURL:     "http://203.0.113.10:18082",
+			listenAddress: "0.0.0.0:18082",
+			want:          "http://203.0.113.10:18082/auth?t=test-token",
+		},
+		{
+			name:          "public base path",
+			publicURL:     "https://telegram.example.com/agent/",
+			listenAddress: "0.0.0.0:18082",
+			want:          "https://telegram.example.com/agent/auth?t=test-token",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := webAuthLink(tt.publicURL, tt.listenAddress, "test-token")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("link = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWebAuthLinkRejectsUnsafePublicURLs(t *testing.T) {
+	tests := []string{
+		"ftp://telegram.example.com",
+		"http://user:pass@telegram.example.com",
+		"https://telegram.example.com?next=/",
+		"https://telegram.example.com/#fragment",
+		"https:telegram.example.com",
+		"not a URL",
+	}
+	for _, publicURL := range tests {
+		t.Run(publicURL, func(t *testing.T) {
+			if _, err := webAuthLink(publicURL, "127.0.0.1:41000", "test-token"); err == nil {
+				t.Fatal("expected public URL validation error")
+			}
+		})
+	}
+}
+
+func TestWebAuthListenBeyondLoopbackRequiresPublicURL(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	state := createTestState(t)
+	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+
+	server, _, err := startWebAuthServer(context.Background(), session, "0.0.0.0", 0, "")
+	if err == nil {
+		shutdownWebAuthServer(server)
+		t.Fatal("expected public URL validation error")
+	}
+	if !strings.Contains(err.Error(), "public-url is required") {
+		t.Fatalf("error = %q", err)
+	}
+}
+
+func TestWebAuthFlags(t *testing.T) {
+	cmd := &cobra.Command{}
+	addWebAuthFlags(cmd)
+	for _, name := range []string{"listen", "public-url"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag", name)
 		}
 	}
 }
@@ -176,6 +259,49 @@ func TestWebAuthStateContractForQR(t *testing.T) {
 	}
 	if authState.API.AppID != state.AppID || !authState.API.CanEdit {
 		t.Fatalf("unexpected API contract: %+v", authState.API)
+	}
+}
+
+func TestWebAuthRecoverableQRErrorStaysOnLoginPage(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	state := createTestState(t)
+	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+	session.qrVersion = 1
+
+	session.setQRCodeError(1, fmt.Errorf("callback: export: rpcDoRequest: rpc error code 400: API_ID_PUBLISHED_FLOOD"))
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/state?t=test-token", nil)
+	rec := httptest.NewRecorder()
+	session.handleState(rec, req)
+	authState := decodeAuthState(t, rec)
+	if rec.Code != http.StatusOK || authState.Mode != "qr" || authState.Completed {
+		t.Fatalf("state = %+v, status %d", authState, rec.Code)
+	}
+	if !strings.Contains(authState.Error, "API_ID_PUBLISHED_FLOOD") || !authState.API.CanEdit {
+		t.Fatalf("recoverable error was not exposed with editable API settings: %+v", authState)
+	}
+	select {
+	case result := <-session.done:
+		t.Fatalf("recoverable error finished auth: %+v", result)
+	default:
+	}
+}
+
+func TestWebAuthRecoverableQRErrorClassification(t *testing.T) {
+	for _, message := range []string{
+		"API_ID_PUBLISHED_FLOOD",
+		"API_ID_INVALID",
+		"API_ID_PUBLISHED",
+	} {
+		if !isRecoverableQRAuthError(fmt.Errorf("rpc error: %s", message)) {
+			t.Fatalf("%s should be recoverable", message)
+		}
+	}
+	for _, message := range []string{"AUTH_KEY_UNREGISTERED", "network unavailable", "AUTH_TOKEN_EXPIRED"} {
+		if isRecoverableQRAuthError(fmt.Errorf("%s", message)) {
+			t.Fatalf("%s should not be recoverable", message)
+		}
 	}
 }
 
@@ -340,6 +466,7 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+	t.Cleanup(session.cancelQRCodeFlow)
 
 	var gotAppID int
 	var gotAppHash string

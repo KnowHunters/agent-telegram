@@ -15,7 +15,7 @@ import (
 func TestSocketServerUsesReloadedPolicyWithoutRestart(t *testing.T) {
 	dir := t.TempDir()
 	policyPath := filepath.Join(dir, "policy.json")
-	socketDir, err := os.MkdirTemp("/tmp", "at-ipc-")
+	socketDir, err := os.MkdirTemp("", "at-ipc-")
 	if err != nil {
 		t.Fatal(err)
 	}

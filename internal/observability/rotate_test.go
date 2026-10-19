@@ -31,6 +31,7 @@ func TestRotatingWriterRotatesWhileOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = writer.Close() })
 	if _, err := writer.Write([]byte("1234")); err != nil {
 		t.Fatal(err)
 	}

@@ -81,6 +81,7 @@ func setAuthHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	w.Header().Set("Content-Security-Policy", strings.Join([]string{
 		"default-src 'none'",
 		"img-src data: 'self'",

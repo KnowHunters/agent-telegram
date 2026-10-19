@@ -78,3 +78,10 @@ func (c *Client) GetUpdatePage(limit int, offset int64, epoch string) UpdatePage
 	}
 	return c.updateStore.Page(limit, offset, epoch)
 }
+
+// SetUpdateCallback attaches the gateway journal before starting the client.
+func (c *Client) SetUpdateCallback(fn func(types.StoredUpdate)) {
+	if c.updateStore != nil {
+		c.updateStore.SetOnUpdate(fn)
+	}
+}

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"agent-telegram/internal/testutil"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -14,7 +15,7 @@ import (
 
 func newSessionTestRoot(t *testing.T, args ...string) (*cobra.Command, *bytes.Buffer) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	testutil.SetHome(t, t.TempDir())
 	t.Setenv("TELEGRAM_APP_ID", "")
 	t.Setenv("TELEGRAM_APP_HASH", "")
 	t.Setenv(sessionstore.EnvProvider, sessionstore.MemoryProvider)

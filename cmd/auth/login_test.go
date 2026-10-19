@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"agent-telegram/internal/testutil"
 	"context"
 	"path/filepath"
 	"testing"
@@ -97,7 +98,7 @@ func TestFinishAuthPersistsSelectedProvider(t *testing.T) {
 
 func TestAuthRuntimeConfigBuildsTelegramConfig(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	testutil.SetHome(t, tmp)
 	t.Setenv("TELEGRAM_APP_ID", "999")
 	t.Setenv("TELEGRAM_APP_HASH", "env-hash")
 	runtime := authRuntimeConfig{
@@ -124,7 +125,7 @@ func resetAuthGlobals(t *testing.T, home string) {
 		newAuthBackend = oldBackend
 	})
 
-	t.Setenv("HOME", home)
+	testutil.SetHome(t, home)
 	t.Setenv("TELEGRAM_APP_ID", "")
 	t.Setenv("TELEGRAM_APP_HASH", "")
 	t.Setenv("AGENT_TELEGRAM_PHONE", "")

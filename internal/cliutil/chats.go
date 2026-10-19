@@ -8,7 +8,7 @@ import (
 )
 
 // GetChats fetches and filters chats, outputting as JSON.
-func GetChats(cmd *cobra.Command, limit, offset int, search, filterType string) {
+func GetChats(cmd *cobra.Command, limit, offset int, cursor, search, filterType string) {
 	pag := NewPagination(limit, offset, PaginationConfig{
 		MaxLimit: MaxLimitStandard,
 	})
@@ -16,6 +16,9 @@ func GetChats(cmd *cobra.Command, limit, offset int, search, filterType string) 
 	runner := NewRunnerFromCmd(cmd, true)
 	params := map[string]any{}
 	pag.ToParams(params, true)
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
 	result := runner.CallWithParams("get_chats", params)
 
 	filteredResult := filterChatsResult(result, search, filterType)
@@ -23,13 +26,16 @@ func GetChats(cmd *cobra.Command, limit, offset int, search, filterType string) 
 }
 
 // GetChatsWithRunner fetches and filters chats using the provided runner.
-func GetChatsWithRunner(runner *Runner, limit, offset int, search, filterType string) {
+func GetChatsWithRunner(runner *Runner, limit, offset int, cursor, search, filterType string) {
 	pag := NewPagination(limit, offset, PaginationConfig{
 		MaxLimit: MaxLimitStandard,
 	})
 
 	params := map[string]any{}
 	pag.ToParams(params, true)
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
 	result := runner.CallWithParams("get_chats", params)
 
 	filteredResult := filterChatsResult(result, search, filterType)
@@ -80,13 +86,20 @@ func filterChatsResult(result any, search, filterType string) any {
 		simplified = append(simplified, simplifyChatItem(item))
 	}
 
-	return map[string]any{
+	output := map[string]any{
 		"chats":  simplified,
 		"limit":  ExtractFloat64(rMap, "limit"),
 		"offset": ExtractFloat64(rMap, "offset"),
 		"count":  len(simplified),
 		"total":  float64(filtered.Total),
 	}
+	if hasMore, ok := rMap["hasMore"]; ok {
+		output["hasMore"] = hasMore
+	}
+	if nextCursor, ok := rMap["nextCursor"]; ok {
+		output["nextCursor"] = nextCursor
+	}
+	return output
 }
 
 // simplifyChatItem creates a simplified chat object with key fields.

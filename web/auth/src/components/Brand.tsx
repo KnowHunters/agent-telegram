@@ -1,6 +1,8 @@
 import React from "react";
 
+import {useI18n} from "../i18n";
 import {AuthMode} from "../types";
+import {LanguageSwitch} from "./LanguageSwitch";
 
 export function TelegramMark() {
   return (
@@ -25,6 +27,7 @@ function stepForMode(mode?: AuthMode) {
 export function AuthHeader({mode, title, description}: {mode?: AuthMode; title: string; description: string}) {
   const step = stepForMode(mode);
   const complete = mode === "done";
+  const {t} = useI18n();
   return (
     <header className="auth-header">
       <div className="brand-row">
@@ -32,8 +35,11 @@ export function AuthHeader({mode, title, description}: {mode?: AuthMode; title: 
           <TelegramMark />
           <span>Agent Telegram</span>
         </div>
-        <div className="step-label" aria-label={complete ? "Authentication complete" : `Step ${step} of 2`}>
-          {complete ? "Done" : `Step ${step} of 2`}
+        <div className="header-actions">
+          <LanguageSwitch />
+          <div className="step-label" aria-label={complete ? t.authenticationCompleteLabel : t.stepOf(step)}>
+            {complete ? t.doneLabel : t.stepOf(step)}
+          </div>
         </div>
       </div>
       <div className="step-track" aria-hidden="true">

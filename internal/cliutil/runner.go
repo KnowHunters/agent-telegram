@@ -34,8 +34,9 @@ type optionsRPCClient interface {
 }
 
 var (
-	cliLoggerMu sync.Mutex
-	cliLoggers  = map[string]*slog.Logger{}
+	cliLoggerMu   sync.Mutex
+	cliLoggers    = map[string]*slog.Logger{}
+	cliLogWriters = map[string]*observability.RotatingWriter{}
 )
 
 // getCLILogger returns a logger that writes to the instance-scoped CLI log.
@@ -64,7 +65,19 @@ func getCLILogger(socketPath string) *slog.Logger {
 		Level: slog.LevelInfo,
 	}))
 	cliLoggers[socketPath] = logger
+	cliLogWriters[socketPath] = writer
 	return logger
+}
+
+// CloseLogs releases cached writers for embedded callers and test cleanup.
+func CloseLogs() {
+	cliLoggerMu.Lock()
+	defer cliLoggerMu.Unlock()
+	for _, writer := range cliLogWriters {
+		_ = writer.Close()
+	}
+	cliLoggers = map[string]*slog.Logger{}
+	cliLogWriters = map[string]*observability.RotatingWriter{}
 }
 
 // Runner handles common command execution logic.
