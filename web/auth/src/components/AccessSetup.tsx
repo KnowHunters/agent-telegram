@@ -2,7 +2,8 @@ import React, {useCallback, useEffect, useMemo, useState} from "react";
 import {Alert, Button, Chip, Input, Spinner} from "@heroui/react";
 
 import {fetchPeers, postAuthState} from "../api";
-import {AuthState, PeerOption, PeersState, peerTypeLabels, Policy} from "../types";
+import {useI18n} from "../i18n";
+import {AuthState, PeerOption, PeersState, Policy} from "../types";
 
 type AccessPreset = "all" | "bots" | "selected";
 
@@ -16,6 +17,7 @@ function peerInitials(peer: PeerOption) {
 }
 
 export function AccessSetup({state, onState}: {state: AuthState; onState: (state: AuthState) => void}) {
+  const {t} = useI18n();
   const policy = state.policy;
   const [peersState, setPeersState] = useState<PeersState>({peers: [], count: 0, loaded: false, loading: true});
   const [preset, setPreset] = useState<AccessPreset | null>(null);
@@ -30,12 +32,12 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
       const result = await fetchPeers();
       setPeersState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Could not load your chats.");
+        setError(result.state.error || t.couldNotLoadChats);
       } else if (!result.state.error) {
         setError("");
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load your chats.");
+      setError(reason instanceof Error ? reason.message : t.couldNotLoadChats);
     }
   }, []);
 
@@ -114,11 +116,11 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
 
   const finish = async () => {
     if (!preset) {
-      setError("Choose an access option first.");
+      setError(t.chooseAccess);
       return;
     }
     if (preset !== "all" && selected.size === 0) {
-      setError("Choose at least one chat or allow access to all chats.");
+      setError(t.chooseChat);
       return;
     }
 
@@ -139,66 +141,74 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
       const result = await postAuthState("/auth/finish", {policy: nextPolicy});
       onState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Could not save access settings.");
+        setError(result.state.error || t.couldNotSaveAccess);
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not save access settings.");
+      setError(reason instanceof Error ? reason.message : t.couldNotSaveAccess);
     } finally {
       setSaving(false);
     }
   };
 
   const selectionLabel = preset === "all"
-    ? "All current and future chats"
+    ? t.allCurrentFutureChats
     : preset
-      ? `${selected.size} of ${peersState.count} chats`
-      : "Access has not been selected";
+      ? t.selectedChats(selected.size, peersState.count)
+      : t.accessNotSelected;
+
+  const peerTypeLabels: Record<string, string> = {
+    all: t.all,
+    user: t.people,
+    group: t.groups,
+    channel: t.channels,
+    bot: t.bots,
+  };
 
   return (
     <section className="access-setup">
       {error && (
         <Alert status="danger" role="alert">
           <Alert.Content>
-            <Alert.Title>Check your access settings</Alert.Title>
+            <Alert.Title>{t.accessSettings}</Alert.Title>
             <Alert.Description>{error}</Alert.Description>
           </Alert.Content>
         </Alert>
       )}
 
-      <div className="preset-grid" role="radiogroup" aria-label="Chat access option">
+      <div className="preset-grid" role="radiogroup" aria-label={t.chatAccessOption}>
         <button aria-checked={preset === "all"} className={`preset-card ${preset === "all" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("all")}>
           <span className="preset-icon" aria-hidden="true">∞</span>
-          <span><strong>All chats</strong><small>Current and future chats</small></span>
+          <span><strong>{t.allChats}</strong><small>{t.allChatsDescription}</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
         <button aria-checked={preset === "bots"} className={`preset-card ${preset === "bots" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("bots")}>
           <span className="preset-icon" aria-hidden="true">BOT</span>
-          <span><strong>Bots only</strong><small>No people, groups, or channels</small></span>
+          <span><strong>{t.botsOnly}</strong><small>{t.botsOnlyDescription}</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
         <button aria-checked={preset === "selected"} className={`preset-card ${preset === "selected" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("selected")}>
           <span className="preset-icon" aria-hidden="true">✓</span>
-          <span><strong>Choose manually</strong><small>Create an exact chat allowlist</small></span>
+          <span><strong>{t.chooseManually}</strong><small>{t.chooseManuallyDescription}</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
       </div>
 
       {preset === "all" ? (
         <div className="access-summary">
-          <strong>The agent can work with all chats</strong>
-          <p>Destructive and paid actions will still require separate confirmation.</p>
+          <strong>{t.agentAllChats}</strong>
+          <p>{t.confirmationsRemain}</p>
         </div>
       ) : preset && (
         <div className="peer-picker">
           <div className="peer-toolbar">
             <Input
-              aria-label="Search chats"
+              aria-label={t.searchChats}
               fullWidth
-              placeholder="Search by name or username"
+              placeholder={t.searchPlaceholder}
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
-            <div className="type-filter" role="group" aria-label="Chat type">
+            <div className="type-filter" role="group" aria-label={t.chatType}>
               {Object.entries(peerTypeLabels).map(([value, label]) => (
                 <Button key={value} size="sm" type="button" variant={typeFilter === value ? "primary" : "secondary"} onClick={() => setTypeFilter(value)}>
                   {label}
@@ -208,15 +218,15 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
           </div>
 
           <div className="selection-toolbar">
-            <span>{peersState.loading ? "Loading chats…" : `${selected.size} of ${peersState.count} selected`}</span>
+            <span>{peersState.loading ? t.loadingChats : t.selectedCount(selected.size, peersState.count)}</span>
             <div>
-              <button type="button" onClick={() => setVisible(true)}>Select visible</button>
-              <button type="button" onClick={() => setVisible(false)}>Clear visible</button>
+              <button type="button" onClick={() => setVisible(true)}>{t.selectVisible}</button>
+              <button type="button" onClick={() => setVisible(false)}>{t.clearVisible}</button>
             </div>
           </div>
 
           {peersState.loading && !peersState.loaded ? (
-            <div className="peer-loading"><Spinner size="lg" /><span>Loading your chat list…</span></div>
+            <div className="peer-loading"><Spinner size="lg" /><span>{t.loadingChatList}</span></div>
           ) : (
             <div className="peer-list">
               {filteredPeers.map((peer) => {
@@ -247,16 +257,16 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
                   </div>
                 );
               })}
-              {filteredPeers.length === 0 && <div className="empty-peers">No chats match this search</div>}
+              {filteredPeers.length === 0 && <div className="empty-peers">{t.noMatchingChats}</div>}
             </div>
           )}
         </div>
       )}
 
       <div className="finish-bar">
-        <div><small>Ready to save</small><strong>{selectionLabel}</strong></div>
+        <div><small>{t.readyToSave}</small><strong>{selectionLabel}</strong></div>
         <Button isDisabled={saving || !preset || (preset !== "all" && selected.size === 0)} type="button" onClick={() => void finish()}>
-          {saving ? "Saving…" : "Save and finish"}
+          {saving ? t.saving : t.saveAndFinish}
         </Button>
       </div>
     </section>

@@ -90,11 +90,3 @@ export const defaultPolicy: Policy = {
   allowPeers: [],
   denyPeers: [],
 };
-
-export const peerTypeLabels: Record<string, string> = {
-  all: "All",
-  user: "People",
-  group: "Groups",
-  channel: "Channels",
-  bot: "Bots",
-};

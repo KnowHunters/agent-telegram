@@ -466,6 +466,7 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+	t.Cleanup(session.cancelQRCodeFlow)
 
 	var gotAppID int
 	var gotAppHash string

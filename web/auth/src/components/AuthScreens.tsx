@@ -3,6 +3,7 @@ import {Alert, Button, Spinner} from "@heroui/react";
 
 import {postAuthState} from "../api";
 import {useCountdown} from "../hooks";
+import {Messages, useI18n} from "../i18n";
 import {AuthSession, AuthState} from "../types";
 import {CheckIcon, LockIcon} from "./Brand";
 
@@ -11,21 +12,21 @@ type ScreenProps = {
   onState: (state: AuthState) => void;
 };
 
-function ErrorAlert({message}: {message: string}) {
+function ErrorAlert({message, t}: {message: string; t: Messages}) {
   if (!message) {
     return null;
   }
   return (
     <Alert className="state-alert" status="danger" role="alert">
       <Alert.Content>
-        <Alert.Title>Could not continue</Alert.Title>
+        <Alert.Title>{t.couldNotContinue}</Alert.Title>
         <Alert.Description>{message}</Alert.Description>
       </Alert.Content>
     </Alert>
   );
 }
 
-function useAuthAction(onState: (state: AuthState) => void) {
+function useAuthAction(onState: (state: AuthState) => void, t: Messages) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,12 +37,12 @@ function useAuthAction(onState: (state: AuthState) => void) {
       const result = await postAuthState(path, payload);
       onState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Could not continue.");
+        setError(result.state.error || t.couldNotContinueFallback);
         return false;
       }
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not continue.");
+      setError(reason instanceof Error ? reason.message : t.couldNotContinueFallback);
       return false;
     } finally {
       setBusy(false);
@@ -51,75 +52,74 @@ function useAuthAction(onState: (state: AuthState) => void) {
   return {busy, error, run};
 }
 
-function formatCountdown(seconds: number | null) {
+function formatCountdown(seconds: number | null, t: Messages) {
   if (seconds === null) {
-    return "The code refreshes automatically";
+    return t.codeRefreshAutomatic;
   }
   if (seconds <= 0) {
-    return "Refreshing the QR code…";
+    return t.refreshingQR;
   }
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return `Code refreshes in ${minutes}:${rest.toString().padStart(2, "0")}`;
+  return t.codeRefreshesIn(`${minutes}:${rest.toString().padStart(2, "0")}`);
 }
 
-function sessionProviderLabel(provider: string) {
+function sessionProviderLabel(provider: string, t: Messages) {
   switch (provider) {
     case "keychain":
-      return "macOS Keychain";
+      return t.macOSKeychain;
     case "memory":
-      return "temporary memory";
+      return t.temporaryMemory;
     default:
       return provider;
   }
 }
 
-function SessionSaveNote({session}: {session?: AuthSession}) {
+function SessionSaveNote({session, t}: {session?: AuthSession; t: Messages}) {
   if (!session?.saveByDefault) {
     return null;
   }
-  const provider = sessionProviderLabel(session.provider);
+  const provider = sessionProviderLabel(session.provider, t);
   return (
     <div className="session-save-note">
       <LockIcon />
       <span>
-        Your session will be saved to <strong>{provider}</strong> under profile <strong>{session.profile}</strong>.
+        {t.sessionSavedTo} <strong>{provider}</strong>，{t.sessionSavedProfile} <strong>{session.profile}</strong>。
       </span>
     </div>
   );
 }
 
-function APIErrorHelp({message}: {message: string}) {
+function APIErrorHelp({message, t}: {message: string; t: Messages}) {
   if (!message.includes("API_ID_PUBLISHED_FLOOD") && !message.includes("API_ID_INVALID")) {
     return null;
   }
   return (
     <Alert className="state-alert" status="warning" role="status">
       <Alert.Content>
-        <Alert.Title>Telegram API credentials are unavailable</Alert.Title>
-        <Alert.Description>
-          Create an application at my.telegram.org with this Telegram account, then enter its API ID and Hash under Advanced settings.
-        </Alert.Description>
+        <Alert.Title>{t.apiCredentialsUnavailable}</Alert.Title>
+        <Alert.Description>{t.apiCredentialsHelp}</Alert.Description>
       </Alert.Content>
     </Alert>
   );
 }
 
 function QRScreen({state, onState}: ScreenProps) {
+  const {t} = useI18n();
   const countdown = useCountdown(state.expires);
-  const {busy, error, run} = useAuthAction(onState);
+  const {busy, error, run} = useAuthAction(onState, t);
   return (
     <section className="auth-screen qr-screen">
-      <ol className="qr-instructions" aria-label="How to scan the QR code">
-        <li><span>1</span><p>Open Telegram on your phone</p></li>
-        <li><span>2</span><p>Go to <strong>Settings → Devices</strong></p></li>
-        <li><span>3</span><p>Tap <strong>Link Desktop Device</strong> and point the camera at the code</p></li>
+      <ol className="qr-instructions" aria-label={t.scanInstructions}>
+        <li><span>1</span><p>{t.openTelegram}</p></li>
+        <li><span>2</span><p>{t.settingsDevices} <strong>{t.settingsDevicesStrong}</strong></p></li>
+        <li><span>3</span><p>{t.linkDevice} <strong>{t.linkDeviceStrong}</strong>{t.linkDeviceEnd}</p></li>
       </ol>
 
       <div className="qr-stage" aria-live="polite" aria-busy={!state.qrImage}>
         {state.qrImage ? (
           <img
-            alt="QR code for signing in to Telegram"
+            alt={t.qrAlt}
             className="qr-image"
             key={state.expires || state.qrImage.slice(-24)}
             src={state.qrImage}
@@ -127,19 +127,19 @@ function QRScreen({state, onState}: ScreenProps) {
         ) : (
           <div className="qr-placeholder">
             <Spinner size="lg" />
-            <span>Creating a secure QR code…</span>
+            <span>{t.creatingQR}</span>
           </div>
         )}
       </div>
-      <p className="qr-expiry" aria-live="polite">{formatCountdown(countdown)}</p>
+      <p className="qr-expiry" aria-live="polite">{formatCountdown(countdown, t)}</p>
 
-      <ErrorAlert message={error || state.error || ""} />
-      <APIErrorHelp message={state.error || ""} />
+      <ErrorAlert message={error || state.error || ""} t={t} />
+      <APIErrorHelp message={state.error || ""} t={t} />
 
       {state.session?.error && !state.error && !error && (
         <Alert className="state-alert" status="warning" role="status">
           <Alert.Content>
-            <Alert.Title>Session storage needs attention</Alert.Title>
+            <Alert.Title>{t.sessionStorageAttention}</Alert.Title>
             <Alert.Description>{state.session.error}</Alert.Description>
           </Alert.Content>
         </Alert>
@@ -148,31 +148,32 @@ function QRScreen({state, onState}: ScreenProps) {
       {state.mock?.enabled && (
         <div className="mock-panel">
           <div>
-            <strong>Mock mode</strong>
-            <span>Continue to access setup without Telegram.</span>
+            <strong>{t.mockMode}</strong>
+            <span>{t.mockModeHelp}</span>
           </div>
           <Button isDisabled={busy} size="sm" type="button" onClick={() => void run("/auth/mock/advance", {action: "qr_scan"})}>
-            Simulate QR scan
+            {t.simulateQR}
           </Button>
         </div>
       )}
 
-      <SessionSaveNote session={state.session} />
+      <SessionSaveNote session={state.session} t={t} />
       <div className="trust-note">
         <LockIcon />
-        <span>This page is protected by a one-time link and closes after sign-in.</span>
+        <span>{t.oneTimeLink}</span>
       </div>
     </section>
   );
 }
 
 function DoneScreen() {
+  const {t} = useI18n();
   return (
     <section className="auth-screen done-screen" aria-live="polite">
       <div className="success-mark"><CheckIcon /></div>
       <div>
-        <h2>Authentication complete</h2>
-        <p>Your session has been saved. You can close this page and return to the terminal.</p>
+        <h2>{t.doneTitle}</h2>
+        <p>{t.doneDescription}</p>
       </div>
     </section>
   );
