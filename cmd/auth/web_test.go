@@ -86,7 +86,7 @@ func TestWebAuthServerDoesNotExposeNonQRLoginRoutes(t *testing.T) {
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 
-	server, link, err := startWebAuthServer(context.Background(), session, 0)
+	server, link, err := startWebAuthServer(context.Background(), session, "127.0.0.1", 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,6 +110,88 @@ func TestWebAuthServerDoesNotExposeNonQRLoginRoutes(t *testing.T) {
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusMethodNotAllowed {
 			t.Fatalf("%s status = %d, want 405", path, resp.StatusCode)
+		}
+	}
+}
+
+func TestWebAuthLink(t *testing.T) {
+	tests := []struct {
+		name          string
+		publicURL     string
+		listenAddress string
+		want          string
+	}{
+		{
+			name:          "local listener",
+			listenAddress: "127.0.0.1:41000",
+			want:          "http://127.0.0.1:41000/auth?t=test-token",
+		},
+		{
+			name:          "public base URL",
+			publicURL:     "http://203.0.113.10:18082",
+			listenAddress: "0.0.0.0:18082",
+			want:          "http://203.0.113.10:18082/auth?t=test-token",
+		},
+		{
+			name:          "public base path",
+			publicURL:     "https://telegram.example.com/agent/",
+			listenAddress: "0.0.0.0:18082",
+			want:          "https://telegram.example.com/agent/auth?t=test-token",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := webAuthLink(tt.publicURL, tt.listenAddress, "test-token")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("link = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWebAuthLinkRejectsUnsafePublicURLs(t *testing.T) {
+	tests := []string{
+		"ftp://telegram.example.com",
+		"http://user:pass@telegram.example.com",
+		"https://telegram.example.com?next=/",
+		"https://telegram.example.com/#fragment",
+		"https:telegram.example.com",
+		"not a URL",
+	}
+	for _, publicURL := range tests {
+		t.Run(publicURL, func(t *testing.T) {
+			if _, err := webAuthLink(publicURL, "127.0.0.1:41000", "test-token"); err == nil {
+				t.Fatal("expected public URL validation error")
+			}
+		})
+	}
+}
+
+func TestWebAuthListenBeyondLoopbackRequiresPublicURL(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	state := createTestState(t)
+	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+
+	server, _, err := startWebAuthServer(context.Background(), session, "0.0.0.0", 0, "")
+	if err == nil {
+		shutdownWebAuthServer(server)
+		t.Fatal("expected public URL validation error")
+	}
+	if !strings.Contains(err.Error(), "public-url is required") {
+		t.Fatalf("error = %q", err)
+	}
+}
+
+func TestWebAuthFlags(t *testing.T) {
+	cmd := &cobra.Command{}
+	addWebAuthFlags(cmd)
+	for _, name := range []string{"listen", "public-url"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag", name)
 		}
 	}
 }

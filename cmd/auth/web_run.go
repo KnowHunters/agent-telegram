@@ -24,7 +24,6 @@ func buildWebAuthStart(runtime authRuntimeConfig) (webAuthStart, error) {
 	if runtime.WebMock {
 		return mockWebAuthStart(runtime)
 	}
-
 	cfg, err := runtime.authConfig()
 	if err != nil {
 		return webAuthStart{}, err

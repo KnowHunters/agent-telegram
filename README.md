@@ -33,6 +33,10 @@ agent-telegram
 # Login through a local browser using a QR code.
 agent-telegram auth
 
+# Login from another machine through an explicitly published page.
+agent-telegram auth --listen 0.0.0.0 --port 18082 \
+  --public-url http://203.0.113.10:18082
+
 # Start the local IPC server and use Telegram.
 agent-telegram server ensure
 agent-telegram my-info
@@ -57,6 +61,10 @@ Default Telegram API credentials are built in. To use your own, create an app at
 
 QR is the only supported sign-in method. A new login is saved to the selected
 persistent provider by default; native macOS builds use Keychain.
+For remote login, keep the gateway stopped, expose the auth port only during
+the short login window, and open the printed one-time URL. See
+[remote QR login](docs/gateway.md#remote-qr-login) for firewall and lifecycle
+details.
 
 ## Command Areas
 

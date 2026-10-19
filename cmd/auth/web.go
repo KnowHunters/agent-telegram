@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -91,7 +93,7 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	defer authCancel()
 	session.setContext(authCtx)
 
-	server, link, err := startWebAuthServer(authCtx, session, runtime.WebPort)
+	server, link, err := startWebAuthServer(authCtx, session, runtime.WebListen, runtime.WebPort, runtime.WebPublicURL)
 	if err != nil {
 		_ = start.store.Delete(start.state.ID)
 		failJSON(err.Error())
@@ -107,7 +109,13 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	waitForWebAuthResult(session, server, start)
 }
 
-func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) (*http.Server, string, error) {
+func startWebAuthServer(
+	ctx context.Context,
+	session *webAuthSession,
+	listen string,
+	port int,
+	publicURL string,
+) (*http.Server, string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", session.handleRoot)
 	mux.HandleFunc("GET /auth", session.handleAuth)
@@ -120,9 +128,14 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	mux.HandleFunc("POST /auth/mock/advance", session.handleMockAdvance)
 
 	lc := &net.ListenConfig{}
-	ln, err := lc.Listen(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	address := net.JoinHostPort(listen, strconv.Itoa(port))
+	ln, err := lc.Listen(ctx, "tcp", address)
 	if err != nil {
-		return nil, "", fmt.Errorf("start local auth listener: %w", err)
+		return nil, "", fmt.Errorf("start auth listener: %w", err)
+	}
+	if requiresPublicAuthURL(listen) && publicURL == "" {
+		_ = ln.Close()
+		return nil, "", fmt.Errorf("public-url is required when auth listens beyond loopback")
 	}
 
 	server := &http.Server{
@@ -131,17 +144,52 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	}
 	go func() {
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			session.finish(nil, fmt.Errorf("local auth server error: %w", err))
+			session.finish(nil, fmt.Errorf("auth server error: %w", err))
 		}
 	}()
 
-	link := (&url.URL{
-		Scheme:   "http",
-		Host:     ln.Addr().String(),
-		Path:     "/auth",
-		RawQuery: "t=" + url.QueryEscape(session.token),
-	}).String()
+	link, err := webAuthLink(publicURL, ln.Addr().String(), session.token)
+	if err != nil {
+		_ = ln.Close()
+		return nil, "", err
+	}
 	return server, link, nil
+}
+
+func webAuthLink(publicURL, listenAddress, token string) (string, error) {
+	base := &url.URL{Scheme: "http", Host: listenAddress}
+	if publicURL != "" {
+		parsed, err := url.Parse(publicURL)
+		if err != nil {
+			return "", fmt.Errorf("invalid public auth URL: %w", err)
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return "", fmt.Errorf("public auth URL scheme must be http or https")
+		}
+		if parsed.Host == "" {
+			return "", fmt.Errorf("public auth URL must include a host")
+		}
+		if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return "", fmt.Errorf("public auth URL must not include credentials, a query, or a fragment")
+		}
+		if parsed.Opaque != "" {
+			return "", fmt.Errorf("public auth URL must be hierarchical")
+		}
+		base = parsed
+	}
+	base.Path = strings.TrimRight(base.Path, "/") + "/auth"
+	base.RawPath = ""
+	base.RawQuery = url.Values{"t": []string{token}}.Encode()
+	return base.String(), nil
+}
+
+func requiresPublicAuthURL(listen string) bool {
+	host := strings.TrimSpace(listen)
+	if host == "" || strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
 }
 
 func shutdownWebAuthServer(server *http.Server) {
@@ -377,14 +425,17 @@ func (s *webAuthSession) persistCurrentSession(ctx context.Context) error {
 }
 
 func (s *webAuthSession) authorized(w http.ResponseWriter, r *http.Request) bool {
-	if r.URL.Query().Get("t") == s.token {
-		setAuthHeaders(w)
-		return true
-	}
 	if strings.Contains(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 		_ = r.ParseForm()
 	}
-	if r.Form.Get("token") == s.token {
+	provided := r.URL.Query().Get("t")
+	if provided == "" {
+		provided = r.Form.Get("token")
+	}
+	if provided == "" {
+		provided = r.Header.Get("X-Auth-Token")
+	}
+	if subtle.ConstantTimeCompare([]byte(provided), []byte(s.token)) == 1 {
 		setAuthHeaders(w)
 		return true
 	}

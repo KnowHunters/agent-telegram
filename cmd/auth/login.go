@@ -31,12 +31,14 @@ const (
 )
 
 var (
-	authAppID    string
-	authAppHash  string
-	authStateDir string
-	authStateTTL time.Duration
-	authReload   bool
-	authWebMock  bool
+	authAppID        string
+	authAppHash      string
+	authStateDir     string
+	authStateTTL     time.Duration
+	authReload       bool
+	authWebMock      bool
+	authWebListen    string
+	authWebPublicURL string
 )
 
 var newAuthBackend = func(cfg *config.Config) authflow.Backend {
@@ -44,24 +46,28 @@ var newAuthBackend = func(cfg *config.Config) authflow.Backend {
 }
 
 type authRuntimeConfig struct {
-	AppID    string
-	AppHash  string
-	StateDir string
-	StateTTL time.Duration
-	Reload   bool
-	WebPort  int
-	WebMock  bool
+	AppID        string
+	AppHash      string
+	StateDir     string
+	StateTTL     time.Duration
+	Reload       bool
+	WebPort      int
+	WebListen    string
+	WebPublicURL string
+	WebMock      bool
 }
 
 func authRuntimeFromGlobals() authRuntimeConfig {
 	return authRuntimeConfig{
-		AppID:    authAppID,
-		AppHash:  authAppHash,
-		StateDir: authStateDir,
-		StateTTL: authStateTTL,
-		Reload:   authReload,
-		WebPort:  authWebPort,
-		WebMock:  authWebMock,
+		AppID:        authAppID,
+		AppHash:      authAppHash,
+		StateDir:     authStateDir,
+		StateTTL:     authStateTTL,
+		Reload:       authReload,
+		WebPort:      authWebPort,
+		WebListen:    authWebListen,
+		WebPublicURL: authWebPublicURL,
+		WebMock:      authWebMock,
 	}
 }
 
@@ -88,12 +94,13 @@ func (r authRuntimeConfig) authConfig() (*config.Config, error) {
 var AuthCmd = &cobra.Command{
 	GroupID: "auth",
 	Use:     "auth",
-	Short:   "Login through a local browser page",
-	Long: `Start a local browser-based Telegram login flow.
+	Short:   "Login through a browser page",
+	Long: `Start a browser-based Telegram login flow.
 
 QR login is the only supported sign-in method. The page is printed to stderr
-as a one-time localhost URL, then the command waits for completion and emits
-JSON on stdout.`,
+as a one-time URL, then the command waits for completion and emits JSON on
+stdout. By default the page binds to localhost. Use --listen and --public-url
+when the page must be opened from another computer.`,
 	Args: cobra.NoArgs,
 	Run:  runAuthWeb,
 }
@@ -115,7 +122,9 @@ func addAuthBaseFlags(cmd *cobra.Command) {
 
 func addWebAuthFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
-	cmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
+	cmd.Flags().IntVar(&authWebPort, "port", 0, "Web auth port (0 chooses a free port)")
+	cmd.Flags().StringVar(&authWebListen, "listen", "127.0.0.1", "Web auth listen address")
+	cmd.Flags().StringVar(&authWebPublicURL, "public-url", "", "Public auth base URL required for non-loopback listeners")
 	cmd.Flags().BoolVar(&authWebMock, "mock", false, "Use mock web auth data without Telegram")
 }
 

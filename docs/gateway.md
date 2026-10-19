@@ -29,6 +29,47 @@ that profile's authorization. Encryption does not make the session portable
 to a different Windows user or computer. macOS retains the existing Keychain
 provider; other builds retain the memory provider.
 
+## Remote QR login
+
+The auth page can listen beyond loopback when a browser must reach it from
+another machine. Pass both the bind address and the public base URL. The
+command creates a random one-time token and appends it to the printed link.
+
+Stop the gateway for the selected profile before starting auth. This prevents
+two Telegram clients from using the same account session at once.
+
+```bash
+agent-telegram auth \
+  --listen 0.0.0.0 \
+  --port 18082 \
+  --public-url http://203.0.113.10:18082 \
+  --session-provider file \
+  --reload-server=false
+```
+
+Open the printed URL on the device with Telegram. The login page exits and
+closes its listener after the QR flow finishes, fails, or times out. A
+non-loopback listener requires `--public-url`; the URL may use HTTP or HTTPS
+and must not contain credentials, a query, or a fragment. Prefer HTTPS when
+the browser can reach a trusted certificate. When using bare HTTP, restrict
+the port to the operator's address with a firewall and remove that rule after
+login. Never expose the auth port while no login is running.
+
+After the command writes its JSON result, start the gateway and check
+authenticated readiness:
+
+```bash
+docker compose up -d
+curl http://127.0.0.1:18080/health
+curl -H "Authorization: Bearer $AGENT_TELEGRAM_API_SECRET" \
+  -X POST http://127.0.0.1:18080/rpc/status
+```
+
+The file provider writes the session below `/data/.agent-telegram/sessions`
+in the container volume with mode `0600`. Do not copy a session between
+installations that use different Telegram API credentials. Sign in again
+when the stored API ID/hash changes.
+
 Start the gateway in a foreground terminal:
 
 ```powershell

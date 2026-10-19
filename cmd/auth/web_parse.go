@@ -69,25 +69,14 @@ func parseOptionalPolicyRequest(r *http.Request) (policy.Policy, bool, error) {
 		}
 		return policy.Policy{}, false, err
 	}
-
-	if payload, ok := raw["policy"]; ok {
-		var nextPolicy policy.Policy
-		if err := json.Unmarshal(payload, &nextPolicy); err != nil {
-			return policy.Policy{}, false, err
-		}
-		nextPolicy.Normalize()
-		return nextPolicy, true, nil
-	}
-
-	if _, ok := raw["safeties"]; !ok {
+	if _, ok := raw["policy"]; !ok {
+		// The remote auth UI posts {policy: ...}; an empty JSON object means
+		// use the already persisted policy.
 		return policy.Policy{}, false, nil
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return policy.Policy{}, false, err
-	}
+
 	var nextPolicy policy.Policy
-	if err := json.Unmarshal(data, &nextPolicy); err != nil {
+	if err := json.Unmarshal(raw["policy"], &nextPolicy); err != nil {
 		return policy.Policy{}, false, err
 	}
 	nextPolicy.Normalize()

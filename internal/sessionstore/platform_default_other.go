@@ -2,4 +2,4 @@
 
 package sessionstore
 
-func platformDefaultProvider() string { return MemoryProvider }
+func platformDefaultProvider() string { return FileProvider }
