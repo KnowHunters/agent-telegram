@@ -84,7 +84,8 @@ function SessionSaveNote({session, t}: {session?: AuthSession; t: Messages}) {
     <div className="session-save-note">
       <LockIcon />
       <span>
-        {t.sessionSavedTo} <strong>{provider}</strong>，{t.sessionSavedProfile} <strong>{session.profile}</strong>。
+        {t.sessionSavedTo} <strong>{provider}</strong>, {t.sessionSavedProfile} <strong>{session.profile}</strong>
+        {t.sessionSavedPunctuation}
       </span>
     </div>
   );
@@ -113,7 +114,12 @@ function QRScreen({state, onState}: ScreenProps) {
       <ol className="qr-instructions" aria-label={t.scanInstructions}>
         <li><span>1</span><p>{t.openTelegram}</p></li>
         <li><span>2</span><p>{t.settingsDevices} <strong>{t.settingsDevicesStrong}</strong></p></li>
-        <li><span>3</span><p>{t.linkDevice} <strong>{t.linkDeviceStrong}</strong>{t.linkDeviceEnd}</p></li>
+        <li>
+          <span>3</span>
+          <p>
+            {t.linkDevice} <strong>{t.linkDeviceStrong}</strong> {t.linkDeviceEnd}
+          </p>
+        </li>
       </ol>
 
       <div className="qr-stage" aria-live="polite" aria-busy={!state.qrImage}>

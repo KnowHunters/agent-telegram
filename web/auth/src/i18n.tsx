@@ -27,6 +27,7 @@ type MessagesShape = {
   temporaryMemory: string;
   sessionSavedTo: string;
   sessionSavedProfile: string;
+  sessionSavedPunctuation: string;
   apiCredentialsUnavailable: string;
   apiCredentialsHelp: string;
   scanInstructions: string;
@@ -117,6 +118,7 @@ const messages: Record<Language, MessagesShape> = {
     temporaryMemory: "temporary memory",
     sessionSavedTo: "Your session will be saved to",
     sessionSavedProfile: "under profile",
+    sessionSavedPunctuation: ".",
     apiCredentialsUnavailable: "Telegram API credentials are unavailable",
     apiCredentialsHelp: "Create an application at my.telegram.org with this Telegram account, then enter its API ID and Hash under Advanced settings.",
     scanInstructions: "How to scan the QR code",
@@ -205,6 +207,7 @@ const messages: Record<Language, MessagesShape> = {
     temporaryMemory: "临时内存",
     sessionSavedTo: "会话将保存到",
     sessionSavedProfile: "配置名",
+    sessionSavedPunctuation: "。",
     apiCredentialsUnavailable: "Telegram API 凭据不可用",
     apiCredentialsHelp: "请使用当前 Telegram 账号在 my.telegram.org 创建应用，然后在“高级设置”中填写 API ID 和 Hash。",
     scanInstructions: "扫码登录说明",
