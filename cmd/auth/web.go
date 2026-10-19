@@ -56,6 +56,7 @@ type webAuthSession struct {
 	peersLoading bool
 	peersError   string
 	peerLoader   func(context.Context, *authflow.State, []byte) ([]authPeer, error)
+	qrError      string
 
 	sessionProvider   string
 	sessionProfile    string
@@ -261,6 +262,7 @@ func (s *webAuthSession) startQRCodeFlow() {
 	s.qrImage = ""
 	s.qrTokenURL = ""
 	s.qrExpires = time.Time{}
+	s.qrError = ""
 	s.mu.Unlock()
 
 	if previousCancel != nil {
@@ -289,6 +291,10 @@ func (s *webAuthSession) startQRCodeFlow() {
 		})
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(flowCtx.Err(), context.Canceled) {
+				return
+			}
+			if isRecoverableQRAuthError(err) {
+				s.setQRCodeError(version, err)
 				return
 			}
 			s.finish(nil, err)
@@ -326,7 +332,27 @@ func (s *webAuthSession) updateQRCode(version int, tokenURL string, expiresAt ti
 	s.qrImage = qrImage
 	s.qrTokenURL = tokenURL
 	s.qrExpires = expiresAt
+	s.qrError = ""
 	return nil
+}
+
+func (s *webAuthSession) setQRCodeError(version int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.completed || version != s.qrVersion {
+		return
+	}
+	s.qrImage = ""
+	s.qrTokenURL = ""
+	s.qrExpires = time.Time{}
+	s.qrError = err.Error()
+}
+
+func isRecoverableQRAuthError(err error) bool {
+	message := err.Error()
+	return strings.Contains(message, "API_ID_PUBLISHED_FLOOD") ||
+		strings.Contains(message, "API_ID_INVALID") ||
+		strings.Contains(message, "API_ID_PUBLISHED")
 }
 
 func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
@@ -348,6 +374,7 @@ func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
 	s.qrImage = ""
 	s.qrTokenURL = ""
 	s.qrExpires = time.Time{}
+	s.qrError = ""
 	state := *s.state
 	s.mu.Unlock()
 

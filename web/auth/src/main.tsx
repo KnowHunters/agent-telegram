@@ -66,7 +66,7 @@ function App() {
               <>
                 <AuthScreen state={state} onState={setState} />
                 {state.mode === "qr" && state.api.canEdit && (
-                  <ApiSettingsPanel api={state.api} onUpdated={setState} />
+                  <ApiSettingsPanel api={state.api} authError={state.error} onUpdated={setState} />
                 )}
               </>
             )

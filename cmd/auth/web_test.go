@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -258,6 +259,49 @@ func TestWebAuthStateContractForQR(t *testing.T) {
 	}
 	if authState.API.AppID != state.AppID || !authState.API.CanEdit {
 		t.Fatalf("unexpected API contract: %+v", authState.API)
+	}
+}
+
+func TestWebAuthRecoverableQRErrorStaysOnLoginPage(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	state := createTestState(t)
+	session := newTestWebAuthSession(state, &fakeAuthBackend{})
+	session.qrVersion = 1
+
+	session.setQRCodeError(1, fmt.Errorf("callback: export: rpcDoRequest: rpc error code 400: API_ID_PUBLISHED_FLOOD"))
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/state?t=test-token", nil)
+	rec := httptest.NewRecorder()
+	session.handleState(rec, req)
+	authState := decodeAuthState(t, rec)
+	if rec.Code != http.StatusOK || authState.Mode != "qr" || authState.Completed {
+		t.Fatalf("state = %+v, status %d", authState, rec.Code)
+	}
+	if !strings.Contains(authState.Error, "API_ID_PUBLISHED_FLOOD") || !authState.API.CanEdit {
+		t.Fatalf("recoverable error was not exposed with editable API settings: %+v", authState)
+	}
+	select {
+	case result := <-session.done:
+		t.Fatalf("recoverable error finished auth: %+v", result)
+	default:
+	}
+}
+
+func TestWebAuthRecoverableQRErrorClassification(t *testing.T) {
+	for _, message := range []string{
+		"API_ID_PUBLISHED_FLOOD",
+		"API_ID_INVALID",
+		"API_ID_PUBLISHED",
+	} {
+		if !isRecoverableQRAuthError(fmt.Errorf("rpc error: %s", message)) {
+			t.Fatalf("%s should be recoverable", message)
+		}
+	}
+	for _, message := range []string{"AUTH_KEY_UNREGISTERED", "network unavailable", "AUTH_TOKEN_EXPIRED"} {
+		if isRecoverableQRAuthError(fmt.Errorf("%s", message)) {
+			t.Fatalf("%s should not be recoverable", message)
+		}
 	}
 }
 

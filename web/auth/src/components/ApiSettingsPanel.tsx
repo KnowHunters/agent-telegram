@@ -4,8 +4,9 @@ import {Alert, Button, Chip, Input} from "@heroui/react";
 import {postAuthState} from "../api";
 import {AuthAPI, AuthState} from "../types";
 
-export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (state: AuthState) => void}) {
-  const [open, setOpen] = useState(false);
+export function ApiSettingsPanel({api, authError, onUpdated}: {api: AuthAPI; authError?: string; onUpdated: (state: AuthState) => void}) {
+  const credentialsUnavailable = Boolean(authError?.includes("API_ID_PUBLISHED_FLOOD") || authError?.includes("API_ID_INVALID"));
+  const [open, setOpen] = useState(credentialsUnavailable);
   const [appId, setAppId] = useState(api.appId ? String(api.appId) : "");
   const [appHash, setAppHash] = useState("");
   const [saving, setSaving] = useState(false);
@@ -63,7 +64,9 @@ export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (st
       {open && (
         <form className="advanced-content" onSubmit={submit}>
           <p className="field-help">
-            Most users do not need to change these settings. You can get custom credentials from my.telegram.org.
+            {credentialsUnavailable
+              ? "The current API credentials cannot be used. Create an application at my.telegram.org, then enter its API ID and Hash."
+              : "Most users do not need to change these settings. You can get custom credentials from my.telegram.org."}
           </p>
           {error && (
             <Alert status="danger" role="alert">

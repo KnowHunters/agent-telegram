@@ -89,6 +89,22 @@ function SessionSaveNote({session}: {session?: AuthSession}) {
   );
 }
 
+function APIErrorHelp({message}: {message: string}) {
+  if (!message.includes("API_ID_PUBLISHED_FLOOD") && !message.includes("API_ID_INVALID")) {
+    return null;
+  }
+  return (
+    <Alert className="state-alert" status="warning" role="status">
+      <Alert.Content>
+        <Alert.Title>Telegram API credentials are unavailable</Alert.Title>
+        <Alert.Description>
+          Create an application at my.telegram.org with this Telegram account, then enter its API ID and Hash under Advanced settings.
+        </Alert.Description>
+      </Alert.Content>
+    </Alert>
+  );
+}
+
 function QRScreen({state, onState}: ScreenProps) {
   const countdown = useCountdown(state.expires);
   const {busy, error, run} = useAuthAction(onState);
@@ -118,6 +134,7 @@ function QRScreen({state, onState}: ScreenProps) {
       <p className="qr-expiry" aria-live="polite">{formatCountdown(countdown)}</p>
 
       <ErrorAlert message={error || state.error || ""} />
+      <APIErrorHelp message={state.error || ""} />
 
       {state.session?.error && !state.error && !error && (
         <Alert className="state-alert" status="warning" role="status">
@@ -143,7 +160,7 @@ function QRScreen({state, onState}: ScreenProps) {
       <SessionSaveNote session={state.session} />
       <div className="trust-note">
         <LockIcon />
-        <span>This page is only available on this computer and closes after sign-in.</span>
+        <span>This page is protected by a one-time link and closes after sign-in.</span>
       </div>
     </section>
   );
