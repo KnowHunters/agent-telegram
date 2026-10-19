@@ -3,8 +3,9 @@ package types // revive:disable:var-naming
 
 // GetChatsParams holds parameters for GetChats.
 type GetChatsParams struct {
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+	Cursor string `json:"cursor,omitempty"`
 }
 
 // Validate validates GetChatsParams and sets defaults.
@@ -15,15 +16,21 @@ func (p *GetChatsParams) Validate() error {
 	if p.Limit > 100 {
 		p.Limit = 100
 	}
+	if p.Offset < 0 {
+		p.Offset = 0
+	}
 	return nil
 }
 
 // GetChatsResult is the result of GetChats.
 type GetChatsResult struct {
-	Chats  []map[string]any `json:"chats"`
-	Limit  int              `json:"limit"`
-	Offset int              `json:"offset"`
-	Count  int              `json:"count"`
+	Chats      []map[string]any `json:"chats"`
+	Limit      int              `json:"limit"`
+	Offset     int              `json:"offset"`
+	Count      int              `json:"count"`
+	Total      int              `json:"total"`
+	HasMore    bool             `json:"hasMore"`
+	NextCursor string           `json:"nextCursor,omitempty"`
 }
 
 // ClearMessagesParams holds parameters for ClearMessages.

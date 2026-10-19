@@ -199,6 +199,76 @@ func TestGetChatsWithFakeAPI(t *testing.T) {
 	}
 }
 
+func TestGetChatsPaginationUsesDialogCursor(t *testing.T) {
+	calls := 0
+	c := NewClient(nil)
+	c.SetAPI(tg.NewClient(tgmock.Invoker(func(input bin.Encoder) (bin.Encoder, error) {
+		request, ok := input.(*tg.MessagesGetDialogsRequest)
+		if !ok {
+			t.Fatalf("unexpected request %T", input)
+		}
+		calls++
+		switch calls {
+		case 1:
+			if request.OffsetID != 0 || request.OffsetDate != 0 {
+				t.Fatalf("first request offset = %d/%d", request.OffsetID, request.OffsetDate)
+			}
+			return &tg.MessagesDialogsSlice{
+				Count: 4,
+				Dialogs: []tg.DialogClass{
+					&tg.Dialog{Peer: &tg.PeerUser{UserID: 1}, TopMessage: 11},
+					&tg.Dialog{Peer: &tg.PeerUser{UserID: 2}, TopMessage: 12},
+				},
+				Messages: []tg.MessageClass{
+					&tg.Message{ID: 11, PeerID: &tg.PeerUser{UserID: 1}, Date: 101},
+					&tg.Message{ID: 12, PeerID: &tg.PeerUser{UserID: 2}, Date: 102},
+				},
+				Users: []tg.UserClass{
+					&tg.User{ID: 1, FirstName: "One", AccessHash: 101},
+					&tg.User{ID: 2, FirstName: "Two", AccessHash: 102},
+				},
+			}, nil
+		case 2:
+			if request.OffsetID != 12 || request.OffsetDate != 102 {
+				t.Fatalf("second request offset = %d/%d", request.OffsetID, request.OffsetDate)
+			}
+			peer, ok := request.OffsetPeer.(*tg.InputPeerUser)
+			if !ok || peer.UserID != 2 || peer.AccessHash != 102 {
+				t.Fatalf("second request peer = %#v", request.OffsetPeer)
+			}
+			return &tg.MessagesDialogsSlice{
+				Count: 4,
+				Dialogs: []tg.DialogClass{
+					&tg.Dialog{Peer: &tg.PeerUser{UserID: 3}, TopMessage: 13},
+					&tg.Dialog{Peer: &tg.PeerUser{UserID: 4}, TopMessage: 14},
+				},
+				Messages: []tg.MessageClass{
+					&tg.Message{ID: 13, PeerID: &tg.PeerUser{UserID: 3}, Date: 103},
+					&tg.Message{ID: 14, PeerID: &tg.PeerUser{UserID: 4}, Date: 104},
+				},
+				Users: []tg.UserClass{
+					&tg.User{ID: 3, FirstName: "Three", AccessHash: 103},
+					&tg.User{ID: 4, FirstName: "Four", AccessHash: 104},
+				},
+			}, nil
+		default:
+			t.Fatalf("unexpected request %d: offset %d/%d", calls, request.OffsetID, request.OffsetDate)
+			return nil, nil
+		}
+	})))
+
+	result, err := c.GetChats(context.Background(), &types.GetChatsParams{Limit: 2, Offset: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || result.Count != 2 || result.Total != 4 || result.HasMore {
+		t.Fatalf("result = %+v, calls = %d", result, calls)
+	}
+	if result.Chats[0]["user_id"] != int64(3) || result.Chats[1]["user_id"] != int64(4) {
+		t.Fatalf("chats = %#v", result.Chats)
+	}
+}
+
 func TestParticipantParamsAcceptOffset(t *testing.T) {
 	for _, target := range []any{
 		&types.GetParticipantsParams{},

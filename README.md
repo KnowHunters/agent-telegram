@@ -57,14 +57,26 @@ Manual installation remains available:
 agent-telegram skills install agent-telegram
 ```
 
-Default Telegram API credentials are built in. To use your own, create an app at [my.telegram.org](https://my.telegram.org) and set `TELEGRAM_APP_ID` and `TELEGRAM_APP_HASH`.
+Telegram may reject the built-in public API credentials with
+`API_ID_PUBLISHED_FLOOD`. Create an app for your Telegram account at
+[my.telegram.org](https://my.telegram.org), then set `TELEGRAM_APP_ID` and
+`TELEGRAM_APP_HASH` in your private environment. Do not commit either value.
+The login page also accepts these values under **Advanced settings** and
+starts a new QR flow after applying them.
 
 QR is the only supported sign-in method. A new login is saved to the selected
 persistent provider by default; native macOS builds use Keychain.
+On other platforms `file` is the default; Docker uses
+`/data/.agent-telegram/sessions/<profile>.json`.
 For remote login, keep the gateway stopped, expose the auth port only during
 the short login window, and open the printed one-time URL. See
 [remote QR login](docs/gateway.md#remote-qr-login) for firewall and lifecycle
 details.
+
+The login page is available in Chinese and English. It follows the browser
+language on first visit and remembers the selected language in local storage.
+The language switch changes the QR, access, completion, loading, and error
+states without changing the Telegram session.
 
 ## Command Areas
 
@@ -115,8 +127,8 @@ Run `agent-telegram --help`, `agent-telegram <command> --help`, or `agent-telegr
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_APP_ID` | Telegram API app ID. Optional because a default is built in. |
-| `TELEGRAM_APP_HASH` | Telegram API app hash. Optional because a default is built in. |
+| `TELEGRAM_APP_ID` | Per-account Telegram API app ID. Use your own if the built-in public credentials return `API_ID_PUBLISHED_FLOOD`. |
+| `TELEGRAM_APP_HASH` | Per-account Telegram API app hash. Keep it private and match it to the app ID. |
 | `TELEGRAM_SESSION` | Base64 session for stateless/server deployments. |
 | `AGENT_TELEGRAM_SESSION_PROVIDER` | Session provider. Defaults to macOS Keychain on native macOS builds. |
 | `AGENT_TELEGRAM_PROFILE` | Named session profile. Defaults to `default`. |

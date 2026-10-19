@@ -10,6 +10,7 @@ import (
 var (
 	listLimit  int
 	listOffset int
+	listCursor string
 	listSearch string
 	listType   string
 )
@@ -35,10 +36,11 @@ func AddListCommand(parentCmd *cobra.Command) {
 
 	ListCmd.Flags().IntVarP(&listLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ListCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset for pagination")
+	ListCmd.Flags().StringVar(&listCursor, "cursor", "", "Opaque cursor returned by a previous page")
 	ListCmd.Flags().StringVarP(&listSearch, "search", "Q", "", "Filter by title or username (case-insensitive)")
 	ListCmd.Flags().StringVar(&listType, "type", "", "Filter by type: user, chat, channel, or bot")
 
 	ListCmd.Run = func(*cobra.Command, []string) {
-		cliutil.GetChats(ListCmd, listLimit, listOffset, listSearch, listType)
+		cliutil.GetChats(ListCmd, listLimit, listOffset, listCursor, listSearch, listType)
 	}
 }

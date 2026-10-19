@@ -55,6 +55,18 @@ the browser can reach a trusted certificate. When using bare HTTP, restrict
 the port to the operator's address with a firewall and remove that rule after
 login. Never expose the auth port while no login is running.
 
+The page follows the browser language on first visit and offers a
+**中文 / EN** switch. It remembers the selection locally. All QR, access,
+completion, loading, and error copy changes language; no Telegram data is
+sent to a translation service.
+
+The built-in Telegram API credentials can be rejected with
+`API_ID_PUBLISHED_FLOOD`. Create an app under the account being signed in at
+[my.telegram.org](https://my.telegram.org), then enter its ID and hash under
+**Advanced settings** on the protected auth page. Applying the values starts
+a new QR flow. Keep the hash out of chat, shell history, repositories, and
+logs.
+
 After the command writes its JSON result, start the gateway and check
 authenticated readiness:
 
@@ -69,6 +81,51 @@ The file provider writes the session below `/data/.agent-telegram/sessions`
 in the container volume with mode `0600`. Do not copy a session between
 installations that use different Telegram API credentials. Sign in again
 when the stored API ID/hash changes.
+
+## Docker lifecycle
+
+Create an external volume first, then start the gateway. An external volume
+lets the foreground auth command and the long-running gateway share the same
+session:
+
+```bash
+cd deploy/docker
+cp .env.gateway.example .env.gateway
+# Fill in a unique secret and your Telegram API credentials.
+docker volume create telegram-gateway-data
+docker compose up -d --build
+curl http://127.0.0.1:18080/health
+```
+
+`deploy/docker/compose.yaml` keeps the published port on loopback. For a
+remote service, terminate TLS in a reverse proxy and expose only that proxy.
+Do not bind port `18080` directly to the internet.
+
+For remote login, stop the gateway with
+`docker compose stop telegram-gateway`. Run the auth command as a temporary
+container with the same volume, and expose its port only for the login:
+
+```bash
+docker run --rm --name agent-telegram-auth \
+  --env-file .env.gateway \
+  -p 0.0.0.0:18082:18082 \
+  -v telegram-gateway-data:/data \
+  knowhunters/agent-telegram-gateway:local \
+  auth --listen 0.0.0.0 --port 18082 \
+  --public-url http://203.0.113.10:18082 \
+  --session-provider file --reload-server=false
+```
+
+The command waits for the browser and exits with code `0` after saving the
+session. Confirm `<volume>/.agent-telegram/sessions/default.json` is non-empty
+and mode `0600`, remove the temporary port rule and container, then run
+`docker compose up -d telegram-gateway`. Restart the auth flow if its
+one-time link expires; a failed foreground command leaves no server running.
+
+An existing container created with `docker run` keeps that command line after
+a host reboot; changing the image tag does not alter its arguments. Recreate
+it with `docker compose up -d --force-recreate telegram-gateway` after deploying
+new code.
 
 Start the gateway in a foreground terminal:
 
